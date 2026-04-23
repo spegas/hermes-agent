@@ -9,7 +9,7 @@ import threading
 from pathlib import Path
 from typing import Optional
 
-from agent.file_safety import get_read_block_error
+from agent.file_safety import get_read_block_error, is_read_denied
 from tools.binary_extensions import has_binary_extension
 from tools.file_operations import (
     ShellFileOperations,
@@ -386,6 +386,13 @@ def read_file_tool(path: str, offset: int = 1, limit: int = 500, task_id: str = 
         block_error = get_read_block_error(path)
         if block_error:
             return json.dumps({"error": block_error})
+
+        # ── Read safe-root guard ──────────────────────────────────────
+        # Enforce HERMES_READ_SAFE_ROOT allowlist when configured.
+        if is_read_denied(path):
+            return json.dumps({"error": (
+                "Access denied: the requested path is outside the allowed directories."
+            )})
 
         # ── Dedup check ───────────────────────────────────────────────
         # If we already read this exact (path, offset, limit) and the
@@ -932,6 +939,14 @@ def _handle_search_files(args, **kw):
     target_map = {"grep": "content", "find": "files"}
     raw_target = args.get("target", "content")
     target = target_map.get(raw_target, raw_target)
+    search_path = args.get("path", ".")
+
+    # ── Read safe-root guard ──────────────────────────────────────────
+    if is_read_denied(search_path):
+        return json.dumps({"error": (
+            "Access denied: the requested path is outside the allowed directories."
+        )})
+
     return search_tool(
         pattern=args.get("pattern", ""), target=target, path=args.get("path", "."),
         file_glob=args.get("file_glob"), limit=args.get("limit", 50), offset=args.get("offset", 0),

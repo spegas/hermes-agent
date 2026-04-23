@@ -857,6 +857,15 @@ DEFAULT_CONFIG = {
             "domains": [],
             "shared_files": [],
         },
+        # Per-platform read allowlist for gateway sessions.
+        # Paths listed here are the ONLY directories readable via file tools
+        # on non-CLI platforms (Discord, Telegram, Slack, etc.).
+        # CLI sessions are always unrestricted.
+        # Example:
+        #   gateway_read_safe_roots:
+        #     - ~/Projects/myapp
+        #     - ~/Public
+        "gateway_read_safe_roots": [],
     },
 
     "cron": {

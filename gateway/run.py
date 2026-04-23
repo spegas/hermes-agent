@@ -10091,10 +10091,45 @@ class GatewayRunner:
             _approval_session_token = set_current_session_key(_approval_session_key)
             register_gateway_notify(_approval_session_key, _approval_notify_sync)
             try:
-                result = agent.run_conversation(message, conversation_history=agent_history, task_id=session_id)
+                from agent.file_safety import read_safe_root_context
+                # CLI sessions go through run_agent.py directly, not gateway.
+                # All gateway platforms (Discord, Telegram, Slack, etc.) are
+                # restricted to security.gateway_read_safe_roots in config.yaml.
+                _sec_cfg = user_config.get("security", {})
+                _read_roots = _sec_cfg.get("gateway_read_safe_roots") or []
+                with read_safe_root_context(_read_roots):
+                    result = agent.run_conversation(message, conversation_history=agent_history, task_id=session_id)
+
             finally:
                 unregister_gateway_notify(_approval_session_key)
                 reset_current_session_key(_approval_session_token)
+
+            # ── Path redaction for gateway responses ─────────────────────────
+            # Strip absolute path prefixes from the final response so that
+            # internal directory structure is not exposed to messaging platforms.
+            # e.g. "/Users/macmini/Public/foo.py"  →  "Public/foo.py"
+            #      "/Users/macmini/Python/bar.py"  →  "bar.py"
+            import re as _re
+            def _redact_paths(text: str) -> str:
+                if not isinstance(text, str):
+                    return text
+                # Match any absolute path starting with / followed by segments.
+                # Keep only the last component (basename).
+                def _replace(m):
+                    full = m.group(0)
+                    # Strip trailing punctuation that is not part of the path
+                    trail = ""
+                    stripped = full.rstrip(".,;:!?\"'")
+                    trail = full[len(stripped):]
+                    parts = [p for p in stripped.split("/") if p]
+                    if not parts:
+                        return full
+                    return parts[-1] + trail
+                return _re.sub(r"/(?:[A-Za-z0-9_.\- ]+/)*[A-Za-z0-9_.\- ]+", _replace, text)
+
+            if isinstance(result, dict) and result.get("final_response"):
+                result["final_response"] = _redact_paths(result["final_response"])
+
             result_holder[0] = result
 
             # Signal the stream consumer that the agent is done
