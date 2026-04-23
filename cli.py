@@ -2202,7 +2202,19 @@ class HermesCLI:
             "session_total_tokens": 0,
             "session_api_calls": 0,
             "compressions": 0,
+            "session_title": None,
         }
+
+        # Populate session title from DB or pending title
+        if self._session_db:
+            try:
+                session = self._session_db.get_session(self.session_id)
+                if session and session.get("title"):
+                    snapshot["session_title"] = session["title"]
+            except Exception:
+                pass
+        if not snapshot["session_title"] and getattr(self, "_pending_title", None):
+            snapshot["session_title"] = self._pending_title
 
         if not agent:
             return snapshot
@@ -2383,6 +2395,9 @@ class HermesCLI:
             prompt_elapsed = snapshot.get("prompt_elapsed")
             if prompt_elapsed:
                 parts.append(prompt_elapsed)
+            session_title = snapshot.get("session_title")
+            if session_title:
+                parts.append(f"title: {session_title}")
             return self._trim_status_bar_text(" │ ".join(parts), width)
         except Exception:
             return f"⚕ {self.model if getattr(self, 'model', None) else 'Hermes'}"
@@ -2447,6 +2462,11 @@ class HermesCLI:
                     if prompt_elapsed:
                         frags.append(("class:status-bar-dim", " │ "))
                         frags.append(("class:status-bar-dim", prompt_elapsed))
+                    # Session title at the end
+                    session_title = snapshot.get("session_title")
+                    if session_title:
+                        frags.append(("class:status-bar-dim", " │ "))
+                        frags.append(("class:status-bar-dim", f"title: {session_title}"))
                     frags.append(("class:status-bar", " "))
 
             total_width = sum(self._status_bar_display_width(text) for _, text in frags)
