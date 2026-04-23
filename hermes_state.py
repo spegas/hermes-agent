@@ -31,7 +31,7 @@ T = TypeVar("T")
 
 DEFAULT_DB_PATH = get_hermes_home() / "state.db"
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -65,9 +65,19 @@ CREATE TABLE IF NOT EXISTS sessions (
     cost_source TEXT,
     pricing_version TEXT,
     title TEXT,
+    project TEXT,
     api_call_count INTEGER DEFAULT 0,
     FOREIGN KEY (parent_session_id) REFERENCES sessions(id)
 );
+
+CREATE TABLE IF NOT EXISTS projects (
+    name        TEXT PRIMARY KEY,
+    work_dir    TEXT,
+    description TEXT,
+    created_at  REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name);
 
 CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -356,6 +366,27 @@ class SessionDB:
                 except sqlite3.OperationalError:
                     pass  # Column already exists
                 cursor.execute("UPDATE schema_version SET version = 8")
+            if current_version < 9:
+                # v9: add project support — projects table + sessions.project column
+                try:
+                    cursor.execute('ALTER TABLE sessions ADD COLUMN "project" TEXT')
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
+                try:
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS projects (
+                            name        TEXT PRIMARY KEY,
+                            work_dir    TEXT,
+                            description TEXT,
+                            created_at  REAL NOT NULL
+                        )
+                    """)
+                    cursor.execute(
+                        "CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name)"
+                    )
+                except sqlite3.OperationalError:
+                    pass  # Table already exists
+                cursor.execute("UPDATE schema_version SET version = 9")
 
         # Unique title index — always ensure it exists (safe to run after migrations
         # since the title column is guaranteed to exist at this point)
