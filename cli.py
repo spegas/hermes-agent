@@ -4761,7 +4761,7 @@ class HermesCLI:
             return
 
         # /project <name> [path] — create/set project and tag session
-        project_name = sub_raw
+        project_name = sub_raw.lower()
         work_dir = parts[2].strip() if len(parts) > 2 else None
 
         # Upsert project record
