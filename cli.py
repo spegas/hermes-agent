@@ -4693,7 +4693,10 @@ class HermesCLI:
     def _handle_project_command(self, cmd_original: str) -> None:
         """Handle /project slash command — create/set project, list, save, off."""
         parts = cmd_original.split(None, 2)
-        sub = parts[1].strip().lower() if len(parts) > 1 else None
+        # sub_raw: 원본 케이스 보존 (프로젝트 이름으로 사용)
+        # sub_lower: 서브커맨드 키워드 비교용 (list/save/off)
+        sub_raw = parts[1].strip() if len(parts) > 1 else None
+        sub = sub_raw.lower() if sub_raw else None
 
         if not self._session_db:
             _cprint("  Session database not available.")
@@ -4758,7 +4761,7 @@ class HermesCLI:
             return
 
         # /project <name> [path] — create/set project and tag session
-        project_name = sub
+        project_name = sub_raw
         work_dir = parts[2].strip() if len(parts) > 2 else None
 
         # Upsert project record
