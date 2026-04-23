@@ -4028,8 +4028,8 @@ def get_projects_auto_export(cfg: dict) -> bool:
 
 
 def get_projects_base_dir(cfg: dict, default: str | None = None) -> str:
-    """프로젝트 파일 저장 디렉토리. 기본값 ~/.hermes/Projects."""
-    return default or os.path.join(str(Path.home()), ".hermes", "Projects")
+    """프로젝트 파일 저장 디렉토리. 기본값 ~/.hermes/projects."""
+    return default or os.path.join(str(Path.home()), ".hermes", "projects")
 
 
 def get_projects_list_all(cfg: dict) -> list:

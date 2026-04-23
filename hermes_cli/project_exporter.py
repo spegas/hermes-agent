@@ -39,7 +39,7 @@ def export_session(
         저장된 파일의 절대 경로
     """
     if base_dir is None:
-        base_dir = str(Path.home() / ".hermes" / "Projects")
+        base_dir = str(Path.home() / ".hermes" / "projects")
 
     # 디렉토리/파일명은 소문자로 통일
     project_dir_name = project_name.lower()
