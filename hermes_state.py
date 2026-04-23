@@ -757,18 +757,19 @@ class SessionDB:
         """프로젝트를 생성하거나 work_dir/description을 업데이트한다."""
         import time
         now = time.time()
-        self._conn.execute(
-            """
-            INSERT INTO projects (name, work_dir, description, created_at)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(name) DO UPDATE SET
-                work_dir    = COALESCE(excluded.work_dir, work_dir),
-                description = COALESCE(excluded.description, description),
-                created_at  = ?
-            """,
-            (name, work_dir, description, now, now)
-        )
-        self._conn.commit()
+        def _do(conn):
+            conn.execute(
+                """
+                INSERT INTO projects (name, work_dir, description, created_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(name) DO UPDATE SET
+                    work_dir    = COALESCE(excluded.work_dir, work_dir),
+                    description = COALESCE(excluded.description, description),
+                    created_at  = ?
+                """,
+                (name, work_dir, description, now, now)
+            )
+        self._execute_write(_do)
 
     def get_project(self, name: str) -> dict | None:
         """프로젝트 정보를 반환한다. 없으면 None."""
@@ -789,11 +790,14 @@ class SessionDB:
 
     def set_session_project(self, session_id: str, project_name: str | None) -> bool:
         """세션에 프로젝트 태그를 설정(또는 해제)한다."""
-        cursor = self._conn.execute(
-            "UPDATE sessions SET project = ? WHERE id = ?",
-            (project_name, session_id),
-        )
-        return cursor.rowcount > 0
+        def _do(conn):
+            cursor = conn.execute(
+                "UPDATE sessions SET project = ? WHERE id = ?",
+                (project_name, session_id),
+            )
+            return cursor.rowcount
+        rowcount = self._execute_write(_do)
+        return rowcount > 0
 
     def get_sessions_by_project(self, project_name: str, limit: int = 50) -> list[dict]:
         """특정 프로젝트에 속한 세션 목록을 반환한다."""
