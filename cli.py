@@ -4736,20 +4736,21 @@ class HermesCLI:
         if sub == "save":
             try:
                 from hermes_cli.project_exporter import export_session
-                from hermes_cli.config import get_projects_export_dir, get_obsidian_project_dir
+                from hermes_cli.config import get_projects_obsidian_vault, get_projects_base_dir
                 session = self._session_db.get_session(self.session_id)
                 project_name = session.get("project") if session else None
                 if not project_name:
                     _cprint("  No project set on this session. Use /project <name> first.")
                     return
-                export_dir = get_projects_export_dir()
-                obsidian_dir = get_obsidian_project_dir(project_name)
+                cfg = load_cli_config()
+                base_dir = get_projects_base_dir(cfg)
+                obsidian_vault = get_projects_obsidian_vault(cfg)
                 path = export_session(
+                    db=self._session_db,
                     session_id=self.session_id,
                     project_name=project_name,
-                    conversation_history=self.conversation_history,
-                    export_dir=export_dir,
-                    obsidian_dir=obsidian_dir,
+                    base_dir=base_dir,
+                    obsidian_vault=obsidian_vault,
                 )
                 _cprint(f"  Session saved: {path}")
             except Exception as e:
