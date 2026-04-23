@@ -750,6 +750,64 @@ class SessionDB:
             return exact["id"]
         return None
 
+
+    # ── Project CRUD ──────────────
+
+    def upsert_project(self, name: str, work_dir: str | None = None, description: str | None = None) -> None:
+        """프로젝트를 생성하거나 work_dir/description을 업데이트한다."""
+        import time
+        now = time.time()
+        self._conn.execute(
+            """
+            INSERT INTO projects (name, work_dir, description, created_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(name) DO UPDATE SET
+                work_dir    = COALESCE(excluded.work_dir, work_dir),
+                description = COALESCE(excluded.description, description),
+                created_at  = ?
+            """,
+            (name, work_dir, description, now, now)
+        )
+        self._conn.commit()
+
+    def get_project(self, name: str) -> dict | None:
+        """프로젝트 정보를 반환한다. 없으면 None."""
+        row = self._conn.execute(
+            "SELECT name, work_dir, description, created_at FROM projects WHERE name = ?",
+            (name,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {"name": row[0], "work_dir": row[1], "description": row[2], "created_at": row[3]}
+
+    def list_projects(self) -> list[dict]:
+        """등록된 프로젝트 목록을 created_at 내림차순으로 반환한다."""
+        rows = self._conn.execute(
+            "SELECT name, work_dir, description, created_at FROM projects ORDER BY created_at DESC"
+        ).fetchall()
+        return [{"name": r[0], "work_dir": r[1], "description": r[2], "created_at": r[3]} for r in rows]
+
+    def set_session_project(self, session_id: str, project_name: str | None) -> bool:
+        """세션에 프로젝트 태그를 설정(또는 해제)한다."""
+        cursor = self._conn.execute(
+            "UPDATE sessions SET project = ? WHERE id = ?",
+            (project_name, session_id),
+        )
+        return cursor.rowcount > 0
+
+    def get_sessions_by_project(self, project_name: str, limit: int = 50) -> list[dict]:
+        """특정 프로젝트에 속한 세션 목록을 반환한다."""
+        rows = self._conn.execute(
+            """
+            SELECT id, title, started_at, message_count
+            FROM sessions
+            WHERE project = ?
+            ORDER BY started_at DESC
+            LIMIT ?
+            """,
+            (project_name, limit),
+        ).fetchall()
+        return [{"id": r[0], "title": r[1], "started_at": r[2], "message_count": r[3]} for r in rows]
     def get_next_title_in_lineage(self, base_title: str) -> str:
         """Generate the next title in a lineage (e.g., "my session" → "my session #2").
 
